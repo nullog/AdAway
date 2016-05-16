@@ -11,11 +11,16 @@ dependencies {
 
 android {
     compileSdkVersion 23
-    buildToolsVersion "23.0.2"
+    buildToolsVersion "23.0.3"
 
     defaultConfig {
         minSdkVersion 16
         targetSdkVersion 23
+
+    sourceSets.main {
+            jni.srcDirs = []
+            jniLibs.srcDir 'libs'
+        }
     }
 
     /*
@@ -31,7 +36,7 @@ android {
             project.hasProperty('signingKeyAlias') &&
             project.hasProperty('signingKeyPassword')) {
         println "Found sign properties in gradle.properties! Signing build…"
-        
+
         signingConfigs {
             release {
                 storeFile file(signingStoreLocation)
@@ -45,37 +50,36 @@ android {
     } else {
         buildTypes.release.signingConfig = null
     }
-    
+
     // Do not abort build if lint finds errors
     lintOptions {
         abortOnError false
     }
+
+    task ndkBuild(type: Exec) {
+        commandLine 'ndk-build', '-j4'
+    }
+
+     /**
+     * Task to rename executables from hello_world to libhello_world_exec.so
+     * If they look like libraries, they are packaged in the apk and deployed on the device in the lib folder!
+     *
+     * http://www.gradle.org/docs/current/userguide/working_with_files.html
+     */
+    task renameExecutables(type: Copy) {
+        from 'libs'
+        into 'libs'
+        include '**/*'
+        exclude '**/*.so'
+        exclude '**/*.jar'
+
+        rename(/(.+)/, 'lib$1_exec.so')
+    }
+    build.dependsOn renameExecutables
+    tasks.withType(JavaCompile) {
+        compileTask -> compileTask.dependsOn ndkBuild, renameExecutables
+    }
 }
 
- /**
- * Android Gradle Plugin does not support jni packaging.
- * This is a hack, should be removed in the future
- */
-tasks.withType(com.android.build.gradle.tasks.PackageApplication) { pkgTask ->
-    pkgTask.jniFolders = new HashSet<File>()
-    pkgTask.jniFolders.add(new File(projectDir, 'libs'))
-}
- 
- /**
- * Task to rename executables from hello_world to libhello_world_exec.so
- * If they look like libraries, they are packaged in the apk and deployed on the device in the lib folder!
- *
- * http://www.gradle.org/docs/current/userguide/working_with_files.html
- */
-task renameExecutables(type: Copy) {
-    from 'libs'
-    into 'libs'
-    include '**/*'
-    exclude '**/*.so'
-    exclude '**/*.jar'
-
-    rename(/(.+)/, 'lib$1_exec.so')
-}
 
 
-build.dependsOn renameExecutables
