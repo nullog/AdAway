@@ -57,7 +57,11 @@ android {
     }
 
     task ndkBuild(type: Exec) {
-        commandLine 'ndk-build', '-j4'
+        if (System.getProperty('os.name').toLowerCase().contains('windows')) {
+            commandLine 'ndk-build.cmd', '-j4'
+        }else{
+            commandLine 'ndk-build', '-j4'
+        }
     }
 
      /**
